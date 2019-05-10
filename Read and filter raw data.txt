@@ -1,0 +1,122 @@
+### THIS CODE IS WRITTEN IN R ###
+##IT READS THE RAW DATA PROVIDED FOR THE 
+##UDOT BIG DATA CHALLENGE, ASSIGN CYCLE LENGTH
+##AND FILTER DATA FOR AN HOUR.
+##Then, it gets the phase information e.g.,
+##C, g, r etc.
+
+
+#INSTALL REQUIRED PACKAGES IN R
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+
+###READ DATA FILE
+
+#Input SIGNAL ID?
+signal <- 7181
+
+#Input month?
+mnth <- 11
+#SET THE NAME OF THE DIRECTORY WHERE THE FILE IS STORED
+
+filename <- paste0("Data/Signal/Event data/",signal,"/",
+                   signal,"/",mnth,"_",signal,".csv")
+
+dat <- read.csv(filename, header = F, col.names = 
+                  c("ID","Datetime", "Event_code", "Event_parameter"),
+                stringsAsFactors = F)
+
+#check for overlap phases
+sum(dat$Event_code %in% c(61:70))
+
+#filter all phases and detector events only for SB approach
+
+SB <- filter(dat, Event_code %in% c(0:20,31:40) |
+      (Event_code %in% c(81:100) & Event_parameter %in% c(4,
+          31:43)))
+
+#format date-time and add hour and date column
+SB <- SB %>% mutate(datetime_format = as.POSIXct(SB$Datetime, 
+               format="%Y-%m-%d %H:%M:%OS")) %>%
+		mutate(hr = as.POSIXlt(datetime_format)$hour,
+		date = as.POSIXlt(datetime_format)$mday)
+
+#Input day of month
+day <- 6
+SB_day1 <- filter(SB, as.POSIXlt(SB$datetime_format)$mday == day)
+
+#Sort data by ascending date-time and then
+#descending Event code
+SB_day1 <- SB_day1[with(SB_day1,order(datetime_format, -Event_code)),]
+
+#Assign cycle length number
+j<-0
+	for (i in 1: nrow(SB_day1)){
+  		if(SB_day1$Event_code[i] == 31 & SB_day1$Event_parameter[i] == 2){
+    
+    		j<- j+1
+  }
+    
+  	SB_day1$Cycle[i] <- j
+}
+
+##select a cycle
+#first, select one hour
+hour <- 17
+onehr <- SB_day1 %>% filter(hr == hour) 
+
+#see what cycles belong within this hour
+unique(onehr$Cycle)
+
+#Input cycle number
+cyc <- 388
+onecycle <- onehr %>% filter(Cycle == 391)
+
+#Input phase number
+phase <- 6
+
+#find termination reason
+reason <- onecycle$Event_code[which(onecycle$Event_code %in% c(4:6) & 
+        onecycle$Event_parameter ==phase)]
+
+#Find length of the cycle
+C <- as.numeric(difftime(max(onecycle$datetime_format),min(onecycle$datetime_format),
+              units = "secs"))
+
+#Find green start and end time
+g_start <- onecycle$datetime_format[which(onecycle$Event_code == 1 & 
+                    onecycle$Event_parameter ==phase)]
+  
+g_end <- onecycle$datetime_format[which(onecycle$Event_code == 7 & 
+                     onecycle$Event_parameter ==phase)]
+
+#Find green duration
+g <- as.numeric(difftime(g_end, g_start), units = "secs")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
